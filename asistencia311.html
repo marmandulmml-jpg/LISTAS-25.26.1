@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Asistencia con QR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2563eb; margin-bottom: 10px; font-size: 24px; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
+        .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .menu-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px 15px; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; transition: transform 0.2s; }
+        .menu-btn:hover { transform: translateY(-3px); }
+        .menu-btn.blue { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
+        .menu-btn.green { background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); }
+        .menu-btn.purple { background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%); }
+        .section { display: none; }
+        .section.active { display: block; }
+        .btn-back { background: #e5e7eb; color: #374151; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 15px; font-size: 16px; }
+        .grupo-card { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 2px solid #e5e7eb; }
+        .grupo-info h3 { color: #1f2937; margin-bottom: 5px; }
+        .grupo-info p { color: #6b7280; font-size: 14px; }
+        .btn-download { background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-download:hover { background: #1d4ed8; }
+        .instrucciones { background: #dbeafe; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #2563eb; }
+        .instrucciones h3 { color: #1e40af; margin-bottom: 10px; font-size: 16px; }
+        .instrucciones ol, .instrucciones ul { margin-left: 20px; font-size: 14px; }
+        .instrucciones li { margin-bottom: 6px; color: #1e3a8a; }
+        .tipo-registro { display: flex; gap: 10px; margin: 15px 0; }
+        .tipo-btn { flex: 1; padding: 20px; border: 3px solid #e5e7eb; border-radius: 10px; background: white; cursor: pointer; font-size: 18px; font-weight: bold; transition: all 0.3s; }
+        .tipo-btn.active-asistencia { background: #2563eb; color: white; border-color: #2563eb; }
+        .tipo-btn.active-actividad { background: #16a34a; color: white; border-color: #16a34a; }
+        #video-container { position: relative; width: 100%; max-width: 500px; margin: 20px auto; border-radius: 10px; overflow: hidden; background: #000; }
+        #video { width: 100%; display: block; }
+        #canvas { display: none; }
+        .scanner-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 250px; height: 250px; border: 3px solid #00ff00; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
+        .btn-camera { width: 100%; padding: 15px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-bottom: 15px; }
+        .btn-camera:hover { background: #1d4ed8; }
+        .btn-camera.stop { background: #dc2626; }
+        .registros { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        @media (max-width: 768px) { .registros { grid-template-columns: 1fr; } }
+        .registro-box { background: #f9fafb; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto; }
+        .registro-box h4 { margin-bottom: 10px; font-size: 16px; }
+        .registro-item { background: white; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb; }
+        .registro-item.actividad { border-left-color: #16a34a; }
+        .registro-item .nombre { font-weight: bold; color: #1f2937; font-size: 13px; }
+        .registro-item .info { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .stat-card { padding: 25px; border-radius: 10px; text-align: center; }
+        .stat-card.blue { background: #dbeafe; }
+        .stat-card.green { background: #dcfce7; }
+        .stat-card h3 { font-size: 14px; margin-bottom: 8px; color: #374151; }
+        .stat-card .number { font-size: 40px; font-weight: bold; }
+        .stat-card.blue .number { color: #2563eb; }
+        .stat-card.green .number { color: #16a34a; }
+        .btn-export { width: 100%; padding: 18px; background: #9333ea; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-bottom: 15px; }
+        .btn-export:hover { background: #7e22ce; }
+        .btn-export:disabled { background: #d1d5db; cursor: not-allowed; }
+        .mensaje { padding: 15px; border-radius: 8px; margin: 15px 0; font-weight: bold; text-align: center; font-size: 14px; }
+        .mensaje.exito { background: #dcfce7; color: #15803d; border: 2px solid #16a34a; }
+        .mensaje.error { background: #fee2e2; color: #991b1b; border: 2px solid #dc2626; }
+        .camera-status { text-align: center; padding: 15px; background: #f3f4f6; border-radius: 8px; margin: 15px 0; font-size: 14px; color: #374151; }
+        .ultimo-registro { background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 15px; }
+        .ultimo-registro h4 { color: #92400e; margin-bottom: 5px; font-size: 14px; }
+        .ultimo-registro p { color: #78350f; font-size: 16px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="menu-principal" class="section active">
+            <h1>📱 Sistema de Asistencia con QR</h1>
+            <p class="subtitle">Escaneo automático con cámara</p>
+            <div class="menu">
+                <button class="menu-btn blue" onclick="irGenerar()">📄 Generar Códigos QR</button>
+                <button class="menu-btn green" onclick="irEscanear()">📸 Escanear con Cámara</button>
+                <button class="menu-btn purple" onclick="irReportes()">📊 Ver Reportes</button>
+            </div>
+        </div>
+
+        <div id="generar" class="section">
+            <button class="btn-back" onclick="irMenu()">← Volver</button>
+            <h2 style="font-size: 20px; margin-bottom: 15px;">📄 Generar Códigos QR</h2>
+            <div class="grupo-card">
+                <div class="grupo-info">
+                    <h3>Grupo 311</h3>
+                    <p>33 alumnos</p>
+                </div>
+                <button class="btn-download" onclick="descargarQR()">⬇️ Descargar QR</button>
+            </div>
+            <div class="instrucciones">
+                <h3>💡 Instrucciones:</h3>
+                <ol>
+                    <li>Descarga el archivo HTML con los códigos</li>
+                    <li>Ábrelo e imprime en blanco y negro</li>
+                    <li>Entrega los códigos a tus alumnos</li>
+                </ol>
+            </div>
+        </div>
+
+        <div id="escanear" class="section">
+            <button class="btn-back" onclick="irMenu()">← Volver</button>
+            <h2 style="font-size: 20px; margin-bottom: 15px;">📸 Escanear con Cámara</h2>
+            <div class="tipo-registro">
+                <button id="btn-asistencia" class="tipo-btn active-asistencia" onclick="seleccionarAsistencia()">ASISTENCIA</button>
+                <button id="btn-actividad" class="tipo-btn" onclick="seleccionarActividad()">ACTIVIDAD</button>
+            </div>
+            <button id="btn-iniciar-camera" class="btn-camera" onclick="toggleCamara()">📸 Iniciar Cámara</button>
+            <div id="video-container" style="display: none;">
+                <video id="video" autoplay playsinline></video>
+                <div class="scanner-overlay"></div>
+            </div>
+            <canvas id="canvas"></canvas>
+            <div id="camera-status" class="camera-status" style="display: none;">Esperando código QR...</div>
+            <div id="ultimo-registro"></div>
+            <div id="mensaje-registro"></div>
+            <div class="registros">
+                <div class="registro-box">
+                    <h4 style="color: #2563eb;">📋 Asistencias (<span id="count-asistencia">0</span>)</h4>
+                    <div id="lista-asistencia"><p style="color: #9ca3af; text-align: center; padding: 20px;">No hay registros</p></div>
+                </div>
+                <div class="registro-box">
+                    <h4 style="color: #16a34a;">📝 Actividades (<span id="count-actividad">0</span>)</h4>
+                    <div id="lista-actividad"><p style="color: #9ca3af; text-align: center; padding: 20px;">No hay registros</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reportes" class="section">
+            <button class="btn-back" onclick="irMenu()">← Volver</button>
+            <h2 style="font-size: 20px; margin-bottom: 15px;">📊 Reportes y Exportación</h2>
+            <div class="stats">
+                <div class="stat-card blue">
+                    <h3>Asistencias</h3>
+                    <div class="number" id="stat-asistencia">0</div>
+                </div>
+                <div class="stat-card green">
+                    <h3>Actividades</h3>
+                    <div class="number" id="stat-actividad">0</div>
+                </div>
+            </div>
+            <button class="btn-export" id="btn-exportar" onclick="exportar()">📥 Exportar a Excel (CSV)</button>
+            <div class="instrucciones">
+                <h3>📊 Sobre la exportación:</h3>
+                <ul style="list-style: none;">
+                    <li>✓ Archivo CSV compatible con Excel</li>
+                    <li>✓ Incluye asistencia y actividades</li>
+                    <li>✓ Con matrícula, nombre, fecha y hora</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var alumnos = [
+            { matricula: "232220382-5", nombre: "ARIAS MONDRAGON ESMERALDA ABIGAIL" },
+            { matricula: "242220021-8", nombre: "BENITEZ CHAVEZ ALAN JOSUE" },
+            { matricula: "242220024-2", nombre: "CALZADA MEJIA VANESSA JAQUELINE" },
+            { matricula: "230010011-8", nombre: "DOMINGUEZ GUERRERO LESLIE JAMILET" },
+            { matricula: "242220013-5", nombre: "EGUILUZ PACHECO LILIA ZAMARA" },
+            { matricula: "242220321-2", nombre: "FLORES ALVARADO NAHOMI LIZETH" },
+            { matricula: "242220367-5", nombre: "GALAVIZ RAMIREZ CRISTIAN YIBHRAM" },
+            { matricula: "242220382-4", nombre: "GARCIA GARCIA OLIVER" },
+            { matricula: "242220281-8", nombre: "GARCIA MENDEZ DANTE JOSUE" },
+            { matricula: "242220348-5", nombre: "GARCIA RUIZ SUSANA PAOLA" },
+            { matricula: "242220060-6", nombre: "GUILLERMO RANCHONUEVO WENDY CELESTE" },
+            { matricula: "242220019-2", nombre: "HERNANDEZ GARCIA ANGEL URIEL" },
+            { matricula: "242220352-7", nombre: "HERNANDEZ TOMAS ARIZBET" },
+            { matricula: "242220278-4", nombre: "JIMENEZ CARIÑO MILDRED NAOMI" },
+            { matricula: "242220148-9", nombre: "LANDERO REYNA ARIADNA JOSELINE" },
+            { matricula: "242220347-7", nombre: "LARA RODRIGUEZ MAYTE CAROLINA" },
+            { matricula: "232220436-9", nombre: "LAZARO SOLIS LUIS ANGEL" },
+            { matricula: "242220319-6", nombre: "MARTINEZ MARTINEZ CARLOS GAEL" },
+            { matricula: "242220369-1", nombre: "MAYA HERNANDEZ NELLI YARETZI" },
+            { matricula: "241900243-7", nombre: "OROZCO BAILON FATIMA XIMENA" },
+            { matricula: "242220099-4", nombre: "PALMER REYES MALILLANY DAYLEN" },
+            { matricula: "242220368-3", nombre: "PEÑALOZA JIMENEZ BAKARY NAYIBE" },
+            { matricula: "242220195-0", nombre: "PIMENTEL DIAZ SARA JIMENA" },
+            { matricula: "242220237-0", nombre: "REVILLA NOLASCO RAUL FELIX" },
+            { matricula: "240130245-6", nombre: "REYES GARCIA WILLIAM YAEL" },
+            { matricula: "242220068-9", nombre: "RODRIGUEZ JIMENEZ NAOMI SARAI" },
+            { matricula: "241320571-3", nombre: "ROMERO GARCIA IVAN ALEXANDER" },
+            { matricula: "242220155-4", nombre: "ROMO ABURTO RODOLFO" },
+            { matricula: "242220323-8", nombre: "SANTIAGO GARCIA SUSANA" },
+            { matricula: "242220187-7", nombre: "SANTOS CABRERA JOSE JAASIEL" },
+            { matricula: "242220268-5", nombre: "SANTOS ESPINOZA ANGEL DYLAN" },
+            { matricula: "242220376-6", nombre: "TREJO ROSAS ANGEL AMBROSIO" },
+            { matricula: "242220320-4", nombre: "VELASCO GARCIA ALEXA" }
+        ];
+        var registros = { asistencia: [], actividad: [] };
+        var tipoActual = 'asistencia';
+        var stream = null;
+        var scanning = false;
+        var lastScanned = '';
+        var lastScanTime = 0;
+
+        function irMenu() {
+            if (stream) detenerCamara();
+            document.querySelectorAll('.section').forEach(function(s) { s.classList.remove('active'); });
+            document.getElementById('menu-principal').classList.add('active');
+        }
+        function irGenerar() {
+            document.querySelectorAll('.section').forEach(function(s) { s.classList.remove('active'); });
+            document.getElementById('generar').classList.add('active');
+        }
+        function irEscanear() {
+            document.querySelectorAll('.section').forEach(function(s) { s.classList.remove('active'); });
+            document.getElementById('escanear').classList.add('active');
+        }
+        function irReportes() {
+            document.querySelectorAll('.section').forEach(function(s) { s.classList.remove('active'); });
+            document.getElementById('reportes').classList.add('active');
+            actualizarStats();
+        }
+        function seleccionarAsistencia() {
+            tipoActual = 'asistencia';
+            document.getElementById('btn-asistencia').className = 'tipo-btn active-asistencia';
+            document.getElementById('btn-actividad').className = 'tipo-btn';
+        }
+        function seleccionarActividad() {
+            tipoActual = 'actividad';
+            document.getElementById('btn-asistencia').className = 'tipo-btn';
+            document.getElementById('btn-actividad').className = 'tipo-btn active-actividad';
+        }
+        function toggleCamara() {
+            if (stream) {
+                detenerCamara();
+            } else {
+                iniciarCamara();
+            }
+        }
+        function iniciarCamara() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(function(s) {
+                    stream = s;
+                    var video = document.getElementById('video');
+                    video.srcObject = stream;
+                    document.getElementById('video-container').style.display = 'block';
+                    document.getElementById('camera-status').style.display = 'block';
+                    document.getElementById('btn-iniciar-camera').textContent = '⏹️ Detener Cámara';
+                    document.getElementById('btn-iniciar-camera').className = 'btn-camera stop';
+                    scanning = true;
+                    escanear();
+                })
+                .catch(function(err) {
+                    alert('❌ No se pudo acceder a la cámara.\n\nVerifica los permisos del navegador.');
+                });
+        }
+        function detenerCamara() {
+            if (stream) {
+                stream.getTracks().forEach(function(track) { track.stop(); });
+                stream = null;
+            }
+            scanning = false;
+            document.getElementById('video-container').style.display = 'none';
+            document.getElementById('camera-status').style.display = 'none';
+            document.getElementById('btn-iniciar-camera').textContent = '📸 Iniciar Cámara';
+            document.getElementById('btn-iniciar-camera').className = 'btn-camera';
+        }
+        function escanear() {
+            if (!scanning) return;
+            var video = document.getElementById('video');
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                var code = jsQR(imageData.data, imageData.width, imageData.height);
+                if (code) {
+                    procesarQR(code.data);
+                }
+            }
+            requestAnimationFrame(escanear);
+        }
+        function procesarQR(data) {
+            var now = Date.now();
+            if (data === lastScanned && now - lastScanTime < 2000) return;
+            lastScanned = data;
+            lastScanTime = now;
+            var partes = data.split('|');
+            if (partes.length !== 3) return;
+            var tipo = partes[0];
+            var matricula = partes[1];
+            if (tipo !== tipoActual.toUpperCase()) {
+                mostrarMensaje('⚠️ Código de ' + tipo + ', pero seleccionaste ' + tipoActual.toUpperCase(), 'error');
+                return;
+            }
+            var alumno = null;
+            for (var i = 0; i < alumnos.length; i++) {
+                if (alumnos[i].matricula === matricula) {
+                    alumno = alumnos[i];
+                    break;
+                }
+            }
+            if (!alumno) return;
+            var ahora = new Date();
+            var registro = {
+                matricula: alumno.matricula,
+                nombre: alumno.nombre,
+                fecha: ahora.toLocaleDateString('es-MX'),
+                hora: ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+            };
+            registros[tipoActual].push(registro);
+            actualizarListas();
+            document.getElementById('ultimo-registro').innerHTML = '<div class="ultimo-registro"><h4>✅ Último registro (' + tipoActual.toUpperCase() + '):</h4><p>' + alumno.nombre + '</p></div>';
+        }
+        function mostrarMensaje(texto, tipo) {
+            document.getElementById('mensaje-registro').innerHTML = '<div class="mensaje ' + tipo + '">' + texto + '</div>';
+            setTimeout(function() {
+                document.getElementById('mensaje-registro').innerHTML = '';
+            }, 3000);
+        }
+        function actualizarListas() {
+            var htmlA = '';
+            if (registros.asistencia.length === 0) {
+                htmlA = '<p style="color: #9ca3af; text-align: center; padding: 20px;">No hay registros</p>';
+            } else {
+                for (var i = registros.asistencia.length - 1; i >= 0; i--) {
+                    var r = registros.asistencia[i];
+                    htmlA += '<div class="registro-item"><div class="nombre">' + r.nombre + '</div><div class="info">' + r.fecha + ' - ' + r.hora + '</div></div>';
+                }
+            }
+            document.getElementById('lista-asistencia').innerHTML = htmlA;
+            var htmlB = '';
+            if (registros.actividad.length === 0) {
+                htmlB = '<p style="color: #9ca3af; text-align: center; padding: 20px;">No hay registros</p>';
+            } else {
+                for (var i = registros.actividad.length - 1; i >= 0; i--) {
+                    var r = registros.actividad[i];
+                    htmlB += '<div class="registro-item actividad"><div class="nombre">' + r.nombre + '</div><div class="info">' + r.fecha + ' - ' + r.hora + '</div></div>';
+                }
+            }
+            document.getElementById('lista-actividad').innerHTML = htmlB;
+            document.getElementById('count-asistencia').textContent = registros.asistencia.length;
+            document.getElementById('count-actividad').textContent = registros.actividad.length;
+        }
+        function actualizarStats() {
+            document.getElementById('stat-asistencia').textContent = registros.asistencia.length;
+            document.getElementById('stat-actividad').textContent = registros.actividad.length;
+            var btnExportar = document.getElementById('btn-exportar');
+            if (registros.asistencia.length === 0 && registros.actividad.length === 0) {
+                btnExportar.disabled = true;
+            } else {
+                btnExportar.disabled = false;
+            }
+        }
+        function descargarQR() {
+            var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Códigos QR - Grupo 311</title><style>body { font-family: Arial, sans-serif; padding: 20px; } .alumno { display: inline-block; width: 45%; margin: 15px 2%; text-align: center; vertical-align: top; border: 2px solid #000; padding: 15px; page-break-inside: avoid; } .qr-img { width: 180px; height: 180px; margin: 10px auto; } .nombre { font-weight: bold; font-size: 14px; margin: 10px 0; } .tipo { font-size: 18px; font-weight: bold; margin: 8px 0; } h1 { text-align: center; font-size: 24px; margin-bottom: 30px; } @media print { .alumno { page-break-inside: avoid; } }</style></head><body><h1>CÓDIGOS QR - GRUPO 311</h1>';
+            for (var i = 0; i < alumnos.length; i++) {
+                var a = alumnos[i];
+                html += '<div class="alumno"><img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent('ASISTENCIA|' + a.matricula + '|311') + '" alt="QR"><div class="nombre">' + a.nombre + '</div><div class="tipo">ASISTENCIA</div></div>';
+                html += '<div class="alumno"><img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent('ACTIVIDAD|' + a.matricula + '|311') + '" alt="QR"><div class="nombre">' + a.nombre + '</div><div class="tipo">ACTIVIDAD</div></div>';
+            }
+            html += '</body></html>';
+            var blob = new Blob([html], { type: 'text/html' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Codigos_QR_Grupo_311.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('✅ Archivo descargado!\n\n1. Busca "Codigos_QR_Grupo_311.html" en Descargas\n2. Ábrelo\n3. Imprime (Ctrl + P)');
+        }
+        function exportar() {
+            var csv = '\ufeff';
+            csv += 'REGISTRO DE ASISTENCIA - GRUPO 311\n';
+            csv += 'Matrícula,Nombre,Fecha,Hora\n';
+            for (var i = 0; i < registros.asistencia.length; i++) {
+                var r = registros.asistencia[i];
+                csv += r.matricula + ',"' + r.nombre + '",' + r.fecha + ',' + r.hora + '\n';
+            }
+            csv += '\n\nREGISTRO DE ENTREGA DE ACTIVIDADES - GRUPO 311\n';
+            csv += 'Matrícula,Nombre,Fecha,Hora\n';
+            for (var i = 0; i < registros.actividad.length; i++) {
+                var r = registros.actividad[i];
+                csv += r.matricula + ',"' + r.nombre + '",' + r.fecha + ',' + r.hora + '\n';
+            }
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            var fecha = new Date().toISOString().split('T')[0];
+            a.href = url;
+            a.download = 'Registros_Grupo_311_' + fecha + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('✅ Archivo Excel exportado!\n\nBúscalo en Descargas.');
+        }
+    </script>
+</body>
+</html>
